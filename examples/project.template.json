@@ -1,0 +1,32 @@
+{
+  "source": "./android-project",
+  "module": "app",
+  "resource_roots": ["src/main/res"],
+  "max_iterations": 6,
+  "build": {
+    "command": ["{source}/gradlew.bat", ":app:assembleDebug"],
+    "timeout": 180
+  },
+  "screens": {
+    "home": {
+      "capture": {
+        "command": [
+          "python", "{engine}/engine/device.py",
+          "--apk", "{source}/app/build/outputs/apk/debug/app-debug.apk",
+          "--activity", "com.example.app/.HomeActivity",
+          "--wait-id", "com.example.app:id/homeRoot"
+        ],
+        "timeout": 180
+      },
+      "comparison": {
+        "pixel_tolerance": 8,
+        "max_mismatch_ratio": 0.01,
+        "max_mask_ratio": 0.1,
+        "regions": [],
+        "masks": []
+      }
+    }
+  },
+  "smoke": [],
+  "regression": []
+}

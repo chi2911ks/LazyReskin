@@ -1,0 +1,947 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LazyReskin · Figma Export</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --canvas: var(--figma-color-bg, #ffffff);
+      --surface: var(--figma-color-bg-secondary, #f8f9fa);
+      --panel: var(--figma-color-bg-tertiary, #f1f3f5);
+      --ink: var(--figma-color-text, #1e293b);
+      --muted: var(--figma-color-text-secondary, #64748b);
+      --line: var(--figma-color-border, #e2e8f0);
+      --control: var(--figma-color-border-strong, #cbd5e1);
+      --accent: #10b981;
+      --accent-hover: #059669;
+      --accent-soft: rgba(16, 185, 129, 0.12);
+      --on-accent: #ffffff;
+      --focus: #10b981;
+      --danger: #ef4444;
+      --danger-soft: rgba(239, 68, 68, 0.12);
+      --success: #10b981;
+      --radius: 8px;
+      --radius-sm: 6px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --mono: "JetBrains Mono", SFMono-Regular, Consolas, monospace;
+      --motion: 140ms ease;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --canvas: var(--figma-color-bg, #1e1e1e);
+        --surface: var(--figma-color-bg-secondary, #282828);
+        --panel: var(--figma-color-bg-tertiary, #222222);
+        --ink: var(--figma-color-text, #f8fafc);
+        --muted: var(--figma-color-text-secondary, #94a3b8);
+        --line: var(--figma-color-border, #333333);
+        --control: var(--figma-color-border-strong, #444444);
+        --accent: #10b981;
+        --accent-hover: #34d399;
+        --accent-soft: rgba(16, 185, 129, 0.16);
+        --on-accent: #0f172a;
+        --danger: #f87171;
+        --danger-soft: rgba(239, 68, 68, 0.2);
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    [hidden] { display: none !important; }
+    body {
+      background: var(--canvas);
+      color: var(--ink);
+      font: 12px/1.45 var(--font);
+      user-select: none;
+      -webkit-user-select: none;
+      overflow-x: hidden;
+    }
+
+    button, input, select, textarea { font: inherit; }
+    button, select, summary, input[type="checkbox"] { cursor: pointer; }
+    button:disabled, input:disabled, select:disabled { opacity: 0.45; cursor: not-allowed; }
+    :focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+    svg {
+      width: 16px; height: 16px;
+      fill: none; stroke: currentColor;
+      stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+
+    .topbar {
+      height: 42px;
+      padding: 0 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-weight: 650;
+      font-size: 13px;
+      letter-spacing: -0.2px;
+    }
+    .brand-mark {
+      width: 22px; height: 22px;
+      border-radius: 6px;
+      background: var(--accent);
+      color: var(--on-accent);
+      display: grid;
+      place-items: center;
+    }
+    .brand-mark svg { width: 14px; height: 14px; }
+    .edition {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      padding-left: 6px;
+      border-left: 1px solid var(--line);
+    }
+    .badge {
+      font: 10px/1 var(--mono);
+      padding: 3px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    main {
+      padding: 12px 14px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* Segmented source switch */
+    .segment-wrap { display: flex; flex-direction: column; gap: 4px; }
+    .segment-control {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      padding: 2px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      gap: 2px;
+    }
+    .mode {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: 30px;
+      border: none;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--muted);
+      font-weight: 550;
+      font-size: 11.5px;
+      transition: background var(--motion), color var(--motion);
+    }
+    .mode:hover:not(:disabled) { color: var(--ink); }
+    .mode[aria-pressed="true"] {
+      background: var(--canvas);
+      color: var(--ink);
+      font-weight: 600;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .mode[aria-pressed="true"] svg { color: var(--accent); }
+    .mode-hint { font-size: 11px; color: var(--muted); line-height: 1.35; padding: 0 2px; min-height: 15px; }
+
+    /* Compact 2x2 options grid */
+    .options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .field label {
+      display: block;
+      font-size: 10.5px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    select, input[type="number"] {
+      width: 100%;
+      height: 32px;
+      padding: 0 8px;
+      color: var(--ink);
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      font-size: 11.5px;
+      transition: border var(--motion);
+    }
+    select:hover:not(:disabled), input[type="number"]:hover:not(:disabled) {
+      border-color: var(--control);
+    }
+    select:focus, input[type="number"]:focus {
+      border-color: var(--focus);
+    }
+
+    .toggles-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11.5px;
+    }
+    .check-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+    input[type="checkbox"] {
+      width: 15px; height: 15px;
+      accent-color: var(--accent);
+      margin: 0;
+    }
+
+    .advanced {
+      position: relative;
+    }
+    .advanced summary {
+      color: var(--muted);
+      font-size: 11px;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .advanced summary::-webkit-details-marker { display: none; }
+    .advanced summary:hover { color: var(--ink); }
+    .advanced-content {
+      position: absolute;
+      right: 0;
+      bottom: calc(100% + 6px);
+      width: 250px;
+      padding: 10px 12px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .field-error { color: var(--danger); font-size: 10.5px; }
+
+    /* Primary export button */
+    .primary {
+      width: 100%;
+      height: 36px;
+      border-radius: var(--radius);
+      border: none;
+      background: var(--accent);
+      color: var(--on-accent);
+      font-size: 12.5px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+      transition: background var(--motion), transform var(--motion);
+    }
+    .primary:hover:not(:disabled) {
+      background: var(--accent-hover);
+    }
+    .primary:active:not(:disabled) {
+      transform: scale(0.99);
+    }
+    progress {
+      width: 100%;
+      height: 4px;
+      display: block;
+      accent-color: var(--accent);
+      border-radius: 2px;
+      margin-top: 4px;
+    }
+
+    /* Bundle result card */
+    .bundle-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+    }
+    .bundle-visual {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .archive-icon {
+      width: 32px; height: 32px;
+      border-radius: 6px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      display: grid;
+      place-items: center;
+      color: var(--accent);
+      flex-shrink: 0;
+    }
+    .archive-icon svg { width: 17px; height: 17px; }
+    .filename {
+      font: 600 11.5px/1.2 var(--mono);
+      overflow-wrap: anywhere;
+      color: var(--ink);
+    }
+    .bundle-subtitle {
+      font-size: 10.5px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* 4-stat counter bar */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      background: var(--canvas);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 6px 0;
+    }
+    .stat {
+      text-align: center;
+      border-right: 1px solid var(--line);
+      padding: 0 4px;
+    }
+    .stat:last-child { border-right: none; }
+    .stat strong {
+      display: block;
+      font: 600 15px/1 var(--mono);
+      color: var(--ink);
+    }
+    .stat span {
+      display: block;
+      font-size: 9.5px;
+      color: var(--muted);
+      margin-top: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    /* Status notification */
+    .status-box {
+      padding: 7px 9px;
+      border-radius: var(--radius-sm);
+      background: var(--panel);
+      font-size: 11px;
+    }
+    .status-title {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-weight: 650;
+      margin-bottom: 2px;
+    }
+    .status-title svg { width: 13px; height: 13px; }
+    #status {
+      color: var(--muted);
+      font-size: 10.5px;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
+    }
+    .status-box[data-state="error"] {
+      background: var(--danger-soft);
+    }
+    .status-box[data-state="error"] #status,
+    .status-box[data-state="error"] .status-title {
+      color: var(--danger);
+    }
+    .status-box[data-state="success"] .status-title {
+      color: var(--success);
+    }
+
+    /* Download button */
+    .download {
+      height: 33px;
+      width: 100%;
+      border: 1px solid var(--control);
+      border-radius: var(--radius-sm);
+      background: var(--canvas);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--ink);
+      transition: background var(--motion), border-color var(--motion);
+    }
+    .download:hover:not(:disabled) {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .download svg { width: 14px; height: 14px; }
+
+    /* JSON inspect drawer */
+    .json-panel {
+      border-top: 1px solid var(--line);
+      padding-top: 6px;
+    }
+    .json-panel summary {
+      font-size: 11px;
+      color: var(--muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .json-panel summary:hover { color: var(--ink); }
+    .json-actions {
+      display: flex;
+      gap: 6px;
+      margin: 6px 0;
+    }
+    .text-button {
+      padding: 3px 8px;
+      height: 24px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      font-size: 10.5px;
+      color: var(--ink);
+    }
+    .text-button:hover:not(:disabled) { background: var(--panel); }
+    textarea {
+      width: 100%;
+      height: 90px;
+      resize: vertical;
+      padding: 6px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--panel);
+      color: var(--ink);
+      font: 10px/1.4 var(--mono);
+    }
+  </style>
+</head>
+<body>
+  <!-- All SVGs defined -->
+  <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"><defs>
+    <symbol id="icon-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5M3 16l9 5 9-5"/></symbol>
+    <symbol id="icon-selection" viewBox="0 0 24 24"><path d="M9 3H4a1 1 0 0 0-1 1v5m12-6h5a1 1 0 0 1 1 1v5M3 15v5a1 1 0 0 0 1 1h5m6 0h5a1 1 0 0 0 1-1v-5"/><rect x="8" y="8" width="8" height="8" rx="1"/></symbol>
+    <symbol id="icon-page" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 8h16M9 8v13"/></symbol>
+    <symbol id="icon-arrow" viewBox="0 0 24 24"><path d="M4 12h15m-6-6 6 6-6 6"/></symbol>
+    <symbol id="icon-download" viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M4 15v5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5"/></symbol>
+    <symbol id="icon-folder" viewBox="0 0 24 24"><path d="M3 7V5a1 1 0 0 1 1-1h5l3 3h8a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7Z"/></symbol>
+    <symbol id="icon-file" viewBox="0 0 24 24"><path d="M14 2H5a1 1 0 0 0-1 1v18a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V8l-6-6Zm0 0v6h6M9 14h6m-6 4h4"/></symbol>
+    <symbol id="icon-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-9v.1"/></symbol>
+    <symbol id="icon-archive" viewBox="0 0 24 24"><path d="M14 2H5a1 1 0 0 0-1 1v18a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V8l-6-6Zm0 0v6h6M10 3v2m0 2v2m0 2v2"/><rect x="9" y="15" width="3" height="3" rx=".5"/></symbol>
+    <symbol id="icon-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"/></symbol>
+  </defs></svg>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark"><svg aria-hidden="true"><use href="#icon-layers"/></svg></span>
+      <span>LazyReskin</span>
+      <span class="edition">Figma Export</span>
+    </div>
+    <span class="badge" id="resultBadge">Not exported</span>
+  </header>
+
+  <main>
+    <!-- Source Selection (Segmented Control) -->
+    <div class="segment-wrap">
+      <div class="segment-control" role="group" aria-label="Export source">
+        <button class="mode" id="btnSel" type="button" aria-pressed="true" aria-describedby="modeHint">
+          <svg aria-hidden="true"><use href="#icon-selection"/></svg>
+          <span>Selected screens</span>
+        </button>
+        <button class="mode" id="btnPage" type="button" aria-pressed="false" aria-describedby="modeHint">
+          <svg aria-hidden="true"><use href="#icon-page"/></svg>
+          <span>Whole page</span>
+        </button>
+      </div>
+      <p id="modeHint" class="mode-hint">Select frames in Figma to export layout JSON and screen assets.</p>
+    </div>
+
+    <!-- 2x2 Options Grid -->
+    <div class="options-grid">
+      <div class="field">
+        <label for="assetFormat">Asset format</label>
+        <select id="assetFormat" aria-describedby="formatHint">
+          <option value="auto">Auto · SVG + PNG</option>
+          <option value="png">PNG</option>
+          <option value="svg">SVG</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="pngScale">PNG scale</label>
+        <select id="pngScale">
+          <option value="1">1×</option>
+          <option value="2" selected>2×</option>
+          <option value="3">3×</option>
+          <option value="4">4×</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="assetScope">Asset filter</label>
+        <select id="assetScope">
+          <option value="library_only" selected>Libraries only</option>
+          <option value="all_artwork">All artwork</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="screenshotScope">Screenshots</label>
+        <select id="screenshotScope">
+          <option value="all" selected>All screens</option>
+          <option value="first">First only</option>
+          <option value="custom">Limit count…</option>
+          <option value="none">None (skip)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field" id="maxScreenshotsCol" hidden>
+      <label for="maxScreenshots">Max screenshot count</label>
+      <input id="maxScreenshots" type="number" min="1" max="1000" step="1" value="10" />
+    </div>
+
+    <p id="formatHint" hidden>Matches screen layers with assets in your libraries by name/instance.</p>
+
+    <!-- Toggles & Advanced Settings -->
+    <div class="toggles-row">
+      <label id="includeAssetsRow" class="check-label">
+        <input id="includeAssets" type="checkbox" checked />
+        <span>Include screen assets</span>
+      </label>
+
+      <details class="advanced" id="advancedOptions">
+        <summary><svg aria-hidden="true"><use href="#icon-settings"/></summary>
+        <div class="advanced-content">
+          <div class="field">
+            <label for="maxAssets">Maximum assets</label>
+            <input id="maxAssets" type="number" min="1" max="5000" step="1" value="3000" aria-describedby="maxAssetsError" />
+          </div>
+          <p class="field-error" id="maxAssetsError" hidden>Enter a whole number from 1 to 5,000.</p>
+          <label class="check-label">
+            <input id="autoDownloadAssets" type="checkbox" />
+            <span>Auto-download bundle when finished</span>
+          </label>
+        </div>
+      </details>
+    </div>
+
+    <!-- Primary Action Button -->
+    <button id="btnExport" type="button" class="primary">
+      <span id="exportLabel">Export selected screens</span>
+      <svg aria-hidden="true"><use href="#icon-arrow"/></svg>
+    </button>
+    <progress id="exportProgress" aria-label="Export progress" hidden></progress>
+
+    <!-- Bundle Output Card -->
+    <div class="bundle-card">
+      <div class="bundle-visual">
+        <div class="archive-icon"><svg aria-hidden="true"><use href="#icon-archive"/></svg></div>
+        <div>
+          <p class="filename" id="bundleFilename">project_bundle.zip</p>
+          <p class="bundle-subtitle" id="bundleSubtitle">Ready to export.</p>
+        </div>
+      </div>
+
+      <!-- 4-Stat Metric Strip -->
+      <div class="stats" aria-label="Export totals">
+        <div class="stat"><strong id="screenCount">—</strong><span>Screens</span></div>
+        <div class="stat"><strong id="screenshotCount">—</strong><span>Shots</span></div>
+        <div class="stat"><strong id="assetCount">—</strong><span>Assets</span></div>
+        <div class="stat"><strong id="issueCount">—</strong><span>Issues</span></div>
+      </div>
+
+      <!-- Hidden Tree Rows for state tracking -->
+      <div class="file-tree" hidden>
+        <div class="tree-label" id="treeLabel">Expected contents</div>
+        <div class="tree-row" id="screensRow"><span id="screensTreeLabel">Layout JSON</span></div>
+        <div class="tree-row" id="screenshotsRow"><span id="screenshotsTreeLabel">Screenshots PNG</span></div>
+        <div class="tree-row" id="assetsRow"><span id="assetsTreeLabel">SVG / PNG</span></div>
+      </div>
+
+      <!-- Status Notification Box -->
+      <div class="status-box" id="statusBox" data-state="idle">
+        <div class="status-title">
+          <svg aria-hidden="true"><use href="#icon-info"/></svg>
+          <span id="statusTitle">Ready</span>
+        </div>
+        <p id="status" role="status" aria-live="polite" aria-atomic="true">Choose source and click Export.</p>
+      </div>
+
+      <!-- Download Button -->
+      <button id="btnAssets" type="button" class="download" disabled>
+        <svg aria-hidden="true"><use href="#icon-download"/></svg>
+        <span>Download bundle</span>
+      </button>
+    </div>
+
+    <!-- Inspect JSON Drawer -->
+    <details class="json-panel" id="jsonPanel">
+      <summary>Inspect JSON</summary>
+      <div class="json-actions">
+        <button id="btnCopy" type="button" class="text-button" disabled>Copy JSON</button>
+        <button id="btnDownload" type="button" class="text-button" disabled>Save JSON</button>
+      </div>
+      <textarea id="out" readonly spellcheck="false" placeholder="Export JSON will appear here..."></textarea>
+    </details>
+  </main>
+
+  <script>
+      const $ = (id) => document.getElementById(id);
+      let lastJson = "";
+      let lastAssets = [];
+      let lastScreenshots = [];
+      let busy = false;
+      let bundleReady = false;
+      let selectedMode = "btnSel";
+      let bundleTitle = "";
+
+      function sanitizeBundleName(rawTitle) {
+        if (!rawTitle || typeof rawTitle !== "string") return "project_bundle";
+        let clean = rawTitle.trim();
+        try {
+          clean = clean.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          clean = clean.replace(/đ/g, "d").replace(/Đ/g, "D");
+        } catch (e) {}
+        clean = clean
+          .replace(/[\s\t\r\n]+/g, "_")
+          .replace(/[\\/:*?"<>|()[\]{}#%&+=~`!@$^;,.'"]+/g, "_")
+          .replace(/[^a-zA-Z0-9_\-]+/g, "_")
+          .replace(/[-_]+/g, "_")
+          .replace(/^_+|_+$/g, "");
+        return clean || "project_bundle";
+      }
+
+      function getBundleZipName(payload) {
+        const title = (payload && payload.meta && (payload.meta.fileName || payload.meta.fileTitle)) || bundleTitle;
+        return sanitizeBundleName(title) + ".zip";
+      }
+
+      function updateBundleFilenameUI(title) {
+        if (title) bundleTitle = title;
+        const name = sanitizeBundleName(bundleTitle) + ".zip";
+        const el = $("bundleFilename");
+        if (el) el.textContent = name;
+        return name;
+      }
+      const modes = {
+        btnSel: { type: "export-selection", label: "Export selected screens", hint: "Select screen frames in Figma to export layout JSON and screen assets." },
+        btnPage: { type: "export-page", label: "Export whole page", hint: "Export all screen frames on current page, with layout JSON and screen assets." }
+      };
+      const exportButtons = ["btnSel", "btnPage"];
+      const downloadButtons = ["btnCopy", "btnDownload", "btnAssets"];
+      const optionFields = ["assetFormat", "pngScale", "maxAssets", "includeAssets", "autoDownloadAssets", "assetScope", "screenshotScope", "maxScreenshots"];
+
+      function selectMode(id) {
+        if (busy) return;
+        selectedMode = id;
+        exportButtons.forEach(button => $(button).setAttribute("aria-pressed", String(button === id)));
+        $("modeHint").textContent = modes[id].hint;
+        $("exportLabel").textContent = modes[id].label;
+        if (!bundleReady) updateExpectedContents();
+      }
+
+      function updateExpectedContents() {
+        $("screensRow").hidden = false;
+        $("screenshotsRow").hidden = $("screenshotScope").value === "none";
+        $("assetsRow").hidden = !$("includeAssets").checked;
+      }
+
+      function setBusy(value) {
+        busy = value;
+        exportButtons.forEach(id => { $(id).disabled = value; });
+        downloadButtons.forEach(id => { $(id).disabled = value || !bundleReady; });
+        optionFields.forEach(id => { $(id).disabled = value; });
+        $("btnExport").disabled = value;
+        $("exportLabel").textContent = value ? "Exporting…" : modes[selectedMode].label;
+        $("exportProgress").hidden = !value;
+        if (value) $("exportProgress").removeAttribute("value");
+      }
+
+      function beginExport(type) {
+        if (busy) return;
+        const limit = Number($("maxAssets").value);
+        if (!Number.isInteger(limit) || limit < 1 || limit > 5000) {
+          $("advancedOptions").open = true;
+          $("maxAssetsError").hidden = false;
+          $("maxAssets").setAttribute("aria-invalid", "true");
+          $("maxAssets").focus();
+          return;
+        }
+        $("maxAssetsError").hidden = true;
+        $("maxAssets").removeAttribute("aria-invalid");
+        lastJson = "";
+        lastAssets = [];
+        lastScreenshots = [];
+        bundleReady = false;
+        $("out").value = "";
+        $("screenCount").textContent = "—";
+        $("screenshotCount").textContent = "—";
+        $("assetCount").textContent = "—";
+        $("issueCount").textContent = "—";
+        $("treeLabel").textContent = "Expected contents";
+        $("bundleSubtitle").textContent = "Preparing your files…";
+        updateExpectedContents();
+        setBusy(true);
+        setStatus("Exporting…");
+        parent.postMessage({ pluginMessage: { type, options: options() } }, "*");
+      }
+
+      function setStatus(t, kind) {
+        $("status").textContent = t;
+        const state = kind === "err" ? "error" : busy ? "working" : kind === "ok" ? "success" : "idle";
+        $("statusBox").setAttribute("data-state", state);
+        $("statusTitle").textContent = state === "error" ? (bundleReady ? "Review export issues" : "Export needs attention")
+          : state === "working" ? "Export in progress" : state === "success" ? "Your bundle is ready" : "Ready when you are";
+        $("resultBadge").textContent = state === "error" ? (bundleReady ? "Partial" : "Error")
+          : state === "working" ? "Exporting" : bundleReady ? "Ready" : "Not exported";
+      }
+
+      function options() {
+        const scope = $("screenshotScope").value;
+        return {
+          includeAssets: $("includeAssets").checked,
+          pngScale: Number($("pngScale").value || 2),
+          maxAssets: Number($("maxAssets").value || 3000),
+          assetFormat: $("assetFormat").value,
+          assetScope: $("assetScope").value,
+          screenshotScope: scope,
+          maxScreenshots: scope === "custom" ? Number($("maxScreenshots").value || 10) : 9999
+        };
+      }
+
+      exportButtons.forEach(id => {
+        $(id).onclick = () => selectMode(id);
+        $(id).ondblclick = () => { selectMode(id); beginExport(modes[id].type); };
+      });
+      $("btnExport").onclick = () => beginExport(modes[selectedMode].type);
+      $("includeAssets").onchange = () => { if (!bundleReady) updateExpectedContents(); };
+      $("screenshotScope").onchange = () => {
+        const isCustom = $("screenshotScope").value === "custom";
+        $("maxScreenshotsCol").hidden = !isCustom;
+        if (!bundleReady) updateExpectedContents();
+      };
+      setBusy(false);
+
+      $("btnCopy").onclick = () => {
+        if (busy || !bundleReady || !lastJson) return;
+        $("jsonPanel").open = true;
+        $("out").select();
+        const copied = document.execCommand("copy");
+        $("btnCopy").focus();
+        setStatus(copied ? "JSON copied to clipboard." : "Copy was blocked. Select the JSON and copy it manually.", copied ? "ok" : "err");
+      };
+
+      $("btnDownload").onclick = () => {
+        if (busy || !bundleReady || !lastJson) return;
+        const blob = new Blob([lastJson], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "figma_export.json";
+        a.click();
+        URL.revokeObjectURL(url);
+        setStatus("Downloaded figma_export.json", "ok");
+      };
+
+      function b64ToBytes(b64) {
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return bytes;
+      }
+
+      const crcTable = (() => {
+        const table = new Uint32Array(256);
+        for (let n = 0; n < 256; n++) {
+          let c = n;
+          for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+          table[n] = c >>> 0;
+        }
+        return table;
+      })();
+
+      function crc32(bytes) {
+        let c = 0xffffffff;
+        for (let i = 0; i < bytes.length; i++) c = crcTable[(c ^ bytes[i]) & 0xff] ^ (c >>> 8);
+        return (c ^ 0xffffffff) >>> 0;
+      }
+
+      function u16(v) { return [v & 255, (v >>> 8) & 255]; }
+      function u32(v) { return [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255]; }
+      function strBytes(s) { return new TextEncoder().encode(s); }
+
+      function makeZip(files) {
+        const chunks = [];
+        const central = [];
+        let offset = 0;
+        for (const f of files) {
+          const name = strBytes(f.name);
+          const data = f.bytes;
+          const crc = crc32(data);
+          const local = new Uint8Array([
+            ...u32(0x04034b50), ...u16(20), ...u16(0), ...u16(0), ...u16(0), ...u16(0),
+            ...u32(crc), ...u32(data.length), ...u32(data.length), ...u16(name.length), ...u16(0)
+          ]);
+          chunks.push(local, name, data);
+          central.push({ name, crc, size: data.length, offset });
+          offset += local.length + name.length + data.length;
+        }
+        const centralStart = offset;
+        for (const f of central) {
+          const header = new Uint8Array([
+            ...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0), ...u16(0), ...u16(0), ...u16(0),
+            ...u32(f.crc), ...u32(f.size), ...u32(f.size), ...u16(f.name.length), ...u16(0), ...u16(0),
+            ...u16(0), ...u16(0), ...u32(0), ...u32(f.offset)
+          ]);
+          chunks.push(header, f.name);
+          offset += header.length + f.name.length;
+        }
+        const centralSize = offset - centralStart;
+        chunks.push(new Uint8Array([
+          ...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(central.length), ...u16(central.length),
+          ...u32(centralSize), ...u32(centralStart), ...u16(0)
+        ]));
+        return new Blob(chunks, { type: "application/zip" });
+      }
+
+      function downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      function downloadAssetsZip() {
+        if (busy || !bundleReady || !lastJson) { setStatus("Wait for the export to finish.", "err"); return; }
+        const payload = JSON.parse(lastJson);
+        const files = [];
+        
+        if (payload.screens) {
+          for (let i = 0; i < payload.screens.length; i++) {
+            const screenStr = JSON.stringify(payload.screens[i], null, 2);
+            files.push({ name: "screens/" + payload.screens[i].fileName, bytes: strBytes(screenStr) });
+          }
+        }
+        
+        if (payload.meta) {
+          files.push({ name: "meta.json", bytes: strBytes(JSON.stringify(payload.meta, null, 2)) });
+        }
+        files.push({ name: "assets.manifest.json", bytes: strBytes(JSON.stringify({
+          schemaVersion: payload.schemaVersion,
+          assets: payload.assetExports || []
+        }, null, 2)) });
+        
+        const assets = lastAssets
+          .filter(a => a.base64 && a.filename)
+          .map(a => ({ name: "assets/" + a.filename, bytes: b64ToBytes(a.base64) }));
+          
+        files.push(...assets);
+
+        const screenshots = lastScreenshots
+          .filter(s => s.base64 && s.filename)
+          .map(s => ({ name: "screenshots/" + s.filename, bytes: b64ToBytes(s.base64) }));
+          
+        files.push(...screenshots);
+
+        if (!files.length) { setStatus("No files to bundle.", "err"); return; }
+        const zipName = getBundleZipName(payload);
+        downloadBlob(makeZip(files), zipName);
+        const incomplete = payload.meta && !payload.meta.complete;
+        setStatus("Downloaded " + (incomplete ? "partial " : "") + "bundle " + zipName + " (" + files.length + " files)." +
+          (incomplete ? " See assets.manifest.json and meta.json for skipped or failed assets." : ""), incomplete ? "err" : "ok");
+      }
+
+      $("btnAssets").onclick = downloadAssetsZip;
+
+      let streamingAssets = [];
+      let streamingScreenshots = [];
+
+      onmessage = (event) => {
+        const msg = event.data.pluginMessage;
+        if (!msg) return;
+        if (msg.type === "init") {
+          if (msg.fileName || msg.fileTitle) {
+            updateBundleFilenameUI(msg.fileName || msg.fileTitle);
+          }
+        } else if (msg.type === "result-start") {
+          lastJson = msg.json;
+          streamingAssets = [];
+          streamingScreenshots = msg.screenshots || [];
+          $("out").value = lastJson;
+          const initial = JSON.parse(lastJson);
+          if (initial.meta && (initial.meta.fileName || initial.meta.fileTitle)) {
+            updateBundleFilenameUI(initial.meta.fileName || initial.meta.fileTitle);
+          }
+          $("screenCount").textContent = String((initial.screens || []).length);
+          $("screenshotCount").textContent = String((streamingScreenshots || []).length);
+          $("assetCount").textContent = "0";
+          $("screensTreeLabel").textContent = (initial.screens || []).length + " JSONs";
+          $("screenshotsTreeLabel").textContent = streamingScreenshots.length + " PNGs";
+          $("screenshotsRow").hidden = !streamingScreenshots.length;
+          setStatus("Layout ready. Exporting assets...", "ok");
+        } else if (msg.type === "result-asset") {
+          streamingAssets.push(msg.asset);
+          $("assetCount").textContent = String(streamingAssets.length);
+          setStatus("Exporting assets (" + streamingAssets.length + " exported)...", "ok");
+        } else if (msg.type === "result-end") {
+          lastJson = msg.json;
+          $("out").value = lastJson;
+          lastAssets = streamingAssets;
+          lastScreenshots = streamingScreenshots;
+          bundleReady = true;
+          setBusy(false);
+          const summary = msg.summary;
+          const result = JSON.parse(lastJson);
+          if (result.meta && (result.meta.fileName || result.meta.fileTitle)) {
+            updateBundleFilenameUI(result.meta.fileName || result.meta.fileTitle);
+          }
+          $("screenCount").textContent = String((result.screens || []).length);
+          $("screenshotCount").textContent = String(lastScreenshots.length);
+          $("assetCount").textContent = String(summary.assetCount);
+          $("issueCount").textContent = String((summary.failedCount || 0) + (summary.skippedCount || 0) + (summary.hiddenComponentCount || 0));
+          $("treeLabel").textContent = "Bundle contents";
+          $("screensRow").hidden = !(result.screens || []).length;
+          $("screenshotsRow").hidden = !lastScreenshots.length;
+          $("assetsRow").hidden = !lastAssets.length;
+          $("screensTreeLabel").textContent = (result.screens || []).length + " JSONs";
+          $("screenshotsTreeLabel").textContent = lastScreenshots.length + " PNGs";
+          $("assetsTreeLabel").textContent = summary.assetCount + " files";
+          $("bundleSubtitle").textContent = summary.complete ? "Export complete. Ready to download." : "Partial bundle. Review the report below.";
+          setStatus((summary.complete ? "Done. " : "Partial export. ") +
+            "Exported: " + summary.assetCount + " assets, " + (result.screens || []).length + " screens, " + lastScreenshots.length + " screenshots." +
+            (summary.failedCount ? " Failed: " + summary.failedCount + "." : "") +
+            (summary.skippedCount ? " Over limit: " + summary.skippedCount + "." : ""),
+            summary.complete ? "ok" : "err");
+          if ($("autoDownloadAssets").checked) downloadAssetsZip();
+        } else if (msg.type === "error") {
+          bundleReady = false;
+          setBusy(false);
+          $("bundleSubtitle").textContent = "No bundle available. Try exporting again.";
+          setStatus(msg.message + " Check your source and retry the export.", "err");
+        } else if (msg.type === "progress") {
+          const match = msg.message.match(/Exporting asset (\d+)\/(\d+)/);
+          if (match) {
+            $("exportProgress").max = Number(match[2]);
+            $("exportProgress").value = Math.max(0, Number(match[1]) - 1);
+          }
+          setStatus(msg.message);
+        }
+      };
+    </script>
+</body>
+</html>

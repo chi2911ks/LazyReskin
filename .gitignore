@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.venv/
+debug.log
+scratch/
+runs/
+.lazyreskin/
